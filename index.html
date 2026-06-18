@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تاروت خوان پیشرفته</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+
+        body {
+            background-color: #1a1a2e;
+            color: #e9e9eb;
+            font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #d4af37;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .controls {
+            margin: 20px 0;
+            background-color: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #d4af37;
+        }
+        select, button {
+            padding: 10px 15px;
+            font-size: 16px;
+            margin: 5px;
+            border-radius: 5px;
+            border: none;
+            font-family: inherit;
+        }
+        select {
+            background-color: #fff;
+            color: #1a1a2e;
+        }
+        button {
+            background-color: #d4af37;
+            color: #1a1a2e;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { background-color: #f1c40f; }
+        button:disabled {
+            background-color: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+        .board {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            max-width: 1200px;
+            margin-top: 20px;
+        }
+        .card-slot {
+            width: 220px;
+            min-height: 350px;
+            background-color: #16213e;
+            border: 2px dashed #d4af37;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            box-sizing: border-box;
+            transition: 0.3s;
+        }
+        .card-slot.drawn {
+            border-style: solid;
+            background-color: #0f172a;
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
+        }
+        .position-title {
+            color: #d4af37;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #d4af37;
+            padding-bottom: 5px;
+            width: 100%;
+        }
+        .card-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .card-meaning {
+            font-size: 14px;
+            color: #b0b0c0;
+            line-height: 1.6;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>تاروت خوانی عرفانی</h1>
+    <p>چیدمان خود را انتخاب کنید و کارت‌های خود را بکشید تا معانی آنها آشکار شود.</p>
+
+    <div class="controls">
+        <select id="spreadSelect">
+            <option value="1">تک کارت (برداشت روزانه)</option>
+            <option value="3">۳ کارت (گذشته، حال، آینده)</option>
+            <option value="5">۵ کارت (چیدمان وضعیت)</option>
+            <option value="10">۱۰ کارت (صلیب سلتیک)</option>
+        </select>
+        <button onclick="setupReading()">شروع فال</button>
+        <button id="drawBtn" onclick="drawNextCard()" disabled>کشیدن کارت بعدی</button>
+    </div>
+
+    <div class="board" id="board">
+        <!-- Cards will appear here -->
+    </div>
+
+    <script>
+        // --- 1. SPREAD DEFINITIONS (FARSI) ---
+        const spreads = {
+            1: ["تمرکز اصلی"],
+            3: ["گذشته", "حال", "آینده"],
+            5: ["وضعیت کنونی", "چالش", "تأثیر گذشته", "آینده نزدیک", "نتیجه احتمالی"],
+            10: [
+                "۱. حال / خود شخص", 
+                "۲. چالش پیش رو", 
+                "۳. گذشته", 
+                "۴. آینده", 
+                "۵. خودآگاه / اهداف", 
+                "۶. ناخودآگاه / پایه", 
+                "۷. نصیحت / نگرش شما", 
+                "۸. تأثیرات محیط و دیگران", 
+                "۹. امیدها و ترس‌ها", 
+                "۱۰. نتیجه نهایی"
+            ]
+        };
+
+        // --- 2. TAROT DICTIONARY (FARSI) ---
+        const majorArcana = [
+            { name: "ابله (The Fool)", meaning: "شروع جدید، معصومیت، خودانگیختگی و روحیه آزاد." },
+            { name: "جادوگر (The Magician)", meaning: "تجلی خواسته‌ها، کاردانی، قدرت و عمل الهام‌بخش." },
+            { name: "کاهنه اعظم (The High Priestess)", meaning: "شهود، دانش مقدس، زنانگی الهی و ضمیر ناخودآگاه." },
+            { name: "امپراتریس (The Empress)", meaning: "زنانگی، زیبایی، طبیعت، پرورش و فراوانی." },
+            { name: "امپراتور (The Emperor)", meaning: "اقتدار، استقرار، ساختار، قانون و چهره پدر." },
+            { name: "پاپ / کاهن اعظم (The Hierophant)", meaning: "خرد معنوی، باورهای مذهبی، انطباق و سنت‌ها." },
+            { name: "عشاق (The Lovers)", meaning: "عشق، هماهنگی، روابط، همسویی ارزش‌ها و انتخاب‌ها." },
+            { name: "ارابه (The Chariot)", meaning: "کنترل، اراده، موفقیت، عمل و عزم راسخ." },
+            { name: "قدرت (Strength)", meaning: "شجاعت، ترغیب، نفوذ، شفقت و قدرت درونی." },
+            { name: "درویش / زاهد (The Hermit)", meaning: "جستجوی درون، تفکر، تنهایی و راهنمایی درونی." },
+            { name: "چرخ اقبال (Wheel of Fortune)", meaning: "خوش‌شانسی، کارما، چرخه‌های زندگی، سرنوشت و نقطه عطف." },
+            { name: "عدالت (Justice)", meaning: "عدالت، انصاف، حقیقت، علت و معلول و قانون." },
+            { name: "مرد آویزان (The Hanged Man)", meaning: "مکث، تسلیم، رها کردن و دیدگاه‌های جدید." },
+            { name: "مرگ (Death)", meaning: "پایان‌ها، تغییر، دگرگونی، تحول و گذار." },
+            { name: "اعتدال (Temperance)", meaning: "تعادل، میانه‌روی، صبر، سازگاری و هدف." },
+            { name: "شیطان (The Devil)", meaning: "سایه درون، دلبستگی، اعتیاد، محدودیت و مادی‌گرایی." },
+            { name: "برج (The Tower)", meaning: "تغییر ناگهانی، تحول عظیم، هرج و مرج، مکاشفه و بیداری." },
+            { name: "ستاره (The Star)", meaning: "امید، ایمان، هدف، تجدید قوا و معنویت." },
+            { name: "ماه (The Moon)", meaning: "توهم، ترس، اضطراب، ضمیر ناخودآگاه و شهود." },
+            { name: "خورشید (The Sun)", meaning: "مثبت‌اندیشی، شادی، گرما، موفقیت و نشاط." },
+            { name: "قضاوت (Judgement)", meaning: "قضاوت، تولد دوباره، ندای درون و آمرزش." },
+            { name: "جهان (The World)", meaning: "تکمیل، ادغام، دستاورد، کمال و سفر." }
+        ];
+
+        // Procedural generation for Minor Arcana meanings (FARSI)
+        const suitMeanings = {
+            "چوب‌دست (Wands)": "اشتیاق، انرژی، عمل و خلاقیت.",
+            "جام (Cups)": "احساسات، شهود، روابط و عشق.",
+            "شمشیر (Swords)": "عقل، درگیری، منطق و ارتباطات.",
+            "سکه (Pentacles)": "ثروت، کار، دنیای مادی و طبیعت."
+        };
+
+        const rankMeanings = {
+            "آس": "شروعی جدید، فوران انرژی یا فرصتی در زمینه",
+            "دو": "تعادل، مشارکت یا انتخابی در مورد",
+            "سه": "همکاری، رشد یا بیانِ",
+            "چهار": "ثبات، پایه و اساس یا دوره‌ای از آرامش در",
+            "پنج": "درگیری، از دست دادن یا تغییرات چالش‌برانگیز درگیر با",
+            "شش": "هماهنگی، نوستالژی یا گذری مفید در",
+            "هفت": "ارزیابی، استراتژی یا استقامت مورد نیاز در",
+            "هشت": "حرکت سریع، تسلط یا احساس محدودیت در",
+            "نه": "اوج، استقلال یا اضطراب در مورد",
+            "ده": "تکمیل، میراث یا حمل باری سنگین در زمینه",
+            "نوباوه (Page)": "یک پیام‌آور، الهام یا دیدگاهی جدید درباره",
+            "شوالیه (Knight)": "عمل، ماجراجویی یا تمرکز شدید هدایت شده توسط",
+            "ملکه (Queen)": "پرورش، تسلط یا انرژی عمیقاً درونی شدهِ",
+            "پادشاه (King)": "اقتدار، کنترل یا رهبری پخته بر"
+        };
+
+        // --- 3. BUILD THE DECK ---
+        let fullDeck = [...majorArcana];
+        
+        for (const [suit, suitMeaning] of Object.entries(suitMeanings)) {
+            for (const [rank, rankMeaning] of Object.entries(rankMeanings)) {
+                fullDeck.push({
+                    name: `${rank} ${suit}`,
+                    meaning: `${rankMeaning} ${suitMeaning}`
+                });
+            }
+        }
+
+        // --- 4. APP STATE & LOGIC ---
+        let currentDeck = [];
+        let currentSpread = [];
+        let cardsDrawn = 0;
+
+        // Fisher-Yates Shuffle
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function setupReading() {
+            const spreadSize = document.getElementById("spreadSelect").value;
+            currentSpread = spreads[spreadSize];
+            
+            // Shuffle a fresh deck
+            currentDeck = shuffle([...fullDeck]);
+            cardsDrawn = 0;
+
+            const board = document.getElementById("board");
+            board.innerHTML = ""; // Clear board
+
+            // Create empty slots based on the spread
+            currentSpread.forEach((position, index) => {
+                const slot = document.createElement("div");
+                slot.className = "card-slot";
+                slot.id = `slot-${index}`;
+                slot.innerHTML = `
+                    <div class="position-title">${position}</div>
+                    <div class="card-name">؟</div>
+                    <div class="card-meaning">در انتظار کشیده شدن...</div>
+                `;
+                board.appendChild(slot);
+            });
+
+            // Enable draw button
+            const drawBtn = document.getElementById("drawBtn");
+            drawBtn.disabled = false;
+            drawBtn.innerText = `کشیدن کارت بعدی (۰ از ${currentSpread.length})`;
+        }
+
+        function convertNumbersToPersian(num) {
+            const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            return num.toString().replace(/\d/g, x => persianDigits[x]);
+        }
+
+        function drawNextCard() {
+            if (cardsDrawn >= currentSpread.length) return;
+
+            const slot = document.getElementById(`slot-${cardsDrawn}`);
+            const card = currentDeck.pop(); // Remove top card from shuffled deck
+
+            slot.classList.add("drawn");
+            slot.querySelector(".card-name").innerText = card.name;
+            slot.querySelector(".card-meaning").innerText = card.meaning;
+
+            cardsDrawn++;
+            
+            const drawBtn = document.getElementById("drawBtn");
+            if (cardsDrawn >= currentSpread.length) {
+                drawBtn.disabled = true;
+                drawBtn.innerText = "فال کامل شد";
+            } else {
+                drawBtn.innerText = `کشیدن کارت بعدی (${convertNumbersToPersian(cardsDrawn)} از ${convertNumbersToPersian(currentSpread.length)})`;
+            }
+        }
+    </script>
+
+</body>
+</html>
